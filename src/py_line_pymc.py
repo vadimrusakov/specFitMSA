@@ -20,6 +20,7 @@ import config_lines as cl
 from datetime import datetime
 
 mpl.style.use('scientific')
+plt.rcParams['text.usetex'] = False
 
 obj_id_user = sys.argv[1]
 try:
@@ -108,7 +109,7 @@ set_separation_kms = 7000 # FWHM ([O III] 4959,5007 are fitted tigether)
 #=== set up paths and fitted lines ==============================
 fpath_runs = f'../data/sample-{cfg.label_catalog}'
 fpath_outputs = os.path.join(fpath_runs, cfg.fdir_outputs)
-if not os.path.exists(fpath_outputs): 
+if not os.path.exists(fpath_outputs):
     os.makedirs(fpath_outputs)
 
 step_method = cfg.step_method
@@ -151,8 +152,8 @@ for k in cl.lw_exclude_lines:
 fpath = os.path.join(
     fpath_runs, 
     #'sample-NIV_1483_NIV_1487_NIII_1750_emitters.csv',
-    #'sample-NII_6549_NII_6584_emitters.csv',
-    'sample-NIV_1483_NIV_1487_NIII_1750_emitters.csv',
+    'sample-NII_6549_NII_6584_emitters.csv',
+    #'sample-NIV_1483_NIV_1487_NIII_1750_emitters.csv',
 )
 
 df_sample = pd.read_csv(fpath, comment='#')
@@ -206,7 +207,6 @@ for i in range(n_iter):
                         fit_window_bins=None, flux_norm=None,
                         download_data=False, verbose=False,
                         **sample_info)
-                    print(sample_info)
                 except:
                     try:
                         sample_info = rspec.get_sample_dict(
@@ -218,7 +218,6 @@ for i in range(n_iter):
                             **sample_info
                         )
                     except:
-                        print(sample_info)
                         skipped_file['nospec'].append(fname_spec)
                         print("  - Skipping... No spec could be loaded.")
                         continue
@@ -377,7 +376,7 @@ for i in range(n_iter):
                         print(f"\n  - Iteration {j_iter}... Set {j+1}/{n_sets}...")
                         print(f"  - fitting lines: {line_keys_set} ...")
                         print(f"  - Skipping... Already fitted.")
-                        #continue # VR
+                        continue # VR
                         
                         #model_label = f'{obj_id}-{fname_spec}-{grating}-iter*-{lines_str}-step{step_method}'
                         #fpaths = os.path.join(fpath_outputs, 
@@ -431,7 +430,7 @@ for i in range(n_iter):
                                        lower=-10-abs(b_max)*10, 
                                        upper=10+abs(b_max)*10)
                         z = pm.Normal(f"z", initval=z_guess, mu=z_guess, 
-                                      sigma=1e-5*z_guess)
+                                      sigma=1e-4*z_guess)
                         if j_iter == 0:
                             start_params['cont_b'] = b_max
                         
@@ -459,8 +458,16 @@ for i in range(n_iter):
                                        line_wavs_set[:-1] * 3e5
                         unresolved = 1.5*fwhm_intrum_list[:-1] > sep_fwhm_kms
                         if unresolved.any():
+                            # idx to remove
                             idx2remove = np.argwhere(unresolved).flatten() + 1
+                            
+                            # set one mean wavelength for the combined lines
+                            merged_wav = np.mean(
+                                line_wavs_set[idx2remove-1:idx2remove+1])
                             line_wavs_set = np.delete(line_wavs_set, idx2remove)
+                            line_wavs_set[idx2remove-1] = merged_wav
+                            
+                            # replace line keys with a combined ine
                             lines_combined = [line_keys_set[i] \
                                 for i in np.insert(idx2remove, 0,
                                                    idx2remove[0]-1)]
@@ -591,7 +598,7 @@ for i in range(n_iter):
                                         for i in range(nobs)]).T
                     
                     # residuals statistics
-                    diff_chi = (Y_fit - y_pred[1]) / Yerr_fit
+                    diff_chi = (Y_fit - y_pred[0]) / Yerr_fit
                     chisq = np.sum(diff_chi**2)
                     redchisq = np.sum(diff_chi**2) / (len(Y_fit)-len(var_names))
                     bic = chisq + npar * np.log(nobs)
