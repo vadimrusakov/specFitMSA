@@ -457,15 +457,17 @@ for i in range(n_iter):
                         sep_fwhm_kms = np.diff(line_wavs_set) /\
                                        line_wavs_set[:-1] * 3e5
                         unresolved = 1.5*fwhm_intrum_list[:-1] > sep_fwhm_kms
+                        print(line_wavs_set)
                         if unresolved.any():
                             # idx to remove
                             idx2remove = np.argwhere(unresolved).flatten() + 1
                             
                             # set one mean wavelength for the combined lines
-                            merged_wav = np.mean(
-                                line_wavs_set[idx2remove-1:idx2remove+1])
+                            for idx in idx2remove:
+                                merged_wav = np.mean(line_wavs_set[idx-1:idx+1])
+                                line_wavs_set[idx-1] = merged_wav
+                            
                             line_wavs_set = np.delete(line_wavs_set, idx2remove)
-                            line_wavs_set[idx2remove-1] = merged_wav
                             
                             # replace line keys with a combined ine
                             lines_combined = [line_keys_set[i] \
@@ -485,7 +487,7 @@ for i in range(n_iter):
                             if j_iter > 0:
                                 start_params[merged_lines+'_amplitude'] =\
                                     prev_params[merged_lines+'_amplitude']
-                        
+                        print(line_wavs_set)
                         print(f"  - starting params: {start_params}")
                         
                         # model components
