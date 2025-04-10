@@ -20,7 +20,7 @@ import config_lines as cl
 from datetime import datetime
 
 mpl.style.use('scientific')
-plt.rcParams['text.usetex'] = False
+#plt.rcParams['text.usetex'] = False
 
 obj_id_user = sys.argv[1]
 try:
@@ -608,6 +608,7 @@ for i in range(n_iter):
                     
                     #============== tabulate & save outputs =================
                     model_dict = {}
+                    model_dict['PROG_ID'] = obj_id
                     model_dict['model_label'] = model_label
                     model_dict['chisq'] = chisq
                     model_dict['redchisq'] = redchisq
