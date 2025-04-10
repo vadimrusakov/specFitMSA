@@ -176,6 +176,16 @@ skipped_file['nospec'] = []
 skipped_file['fitted'] = []
 skipped_file['nolines'] = []
 skipped_file['nospecrange'] = []
+
+fig_axis_labels = {
+    
+    'fwhm': r'FWHM (km s$^{-1}$)',
+    
+    'cont_a': r'$a$ (continuum)',
+    'cont_b': r'$b$ (continuum)',
+    'z': r'Redshift',   
+}
+
 models = {} # store models
 n_obj = df_sample.shape[0]
 for i in range(n_iter):
@@ -697,17 +707,14 @@ for i in range(n_iter):
                         if y_sub_samples.ndim < 3:
                             y_sub_samples = np.atleast_3d(y_sub_samples).T
                         y_sub_samples = y_sub_samples.sum(axis=0) # sum comps.
-                        if y_sub_samples.shape[0] > 0:
-                            y_sub = np.array(
-                                [mode_in_hdi(y_sub_samples[i]) \
-                                    for i in range(n_obs_line)]
-                            ).T # [[mode,sigup,siglo], ndata]
                         
-                            ye_sub = 0.5*(y_sub[1] + y_sub[2])
-                        else:
-                            y_sub = np.zeros((3, n_obs_line))
-                            ye_sub = np.zeros(n_obs_line)
+                        y_sub = np.array(
+                            [mode_in_hdi(y_sub_samples[:,i]) \
+                                for i in range(n_obs_line)]
+                        ).T # [[mode,sigup,siglo], ndata]
+                        ye_sub = 0.5*(y_sub[1] + y_sub[2])
                         
+                        # posterior flux of the continuum
                         y_cont_samples = trace.posterior['Y_cont'].data.reshape(-1,nobs)[:,is_line]
                         y_cont = np.array([mode_in_hdi(y_cont_samples[:,i]) \
                                            for i in range(n_obs_line)]).T
@@ -716,14 +723,10 @@ for i in range(n_iter):
                         # subtract all components except the current one
                         # and propagate the uncertainty 
                         ye_cont_flux = 0.5 * (y_cont[1] + y_cont[2])
-                        y_flux_line = None
-                        ye_flux_line = None
-                        
                         y_flux_line = (Y_fit[is_line] - y_sub[0]) - y_cont[0]
                         ye_flux_line = np.sqrt(
                             Yerr_fit[is_line]**2 + ye_cont_flux**2 + ye_sub**2
                         )
-                        
                         sn_line = np.sum(y_flux_line) /\
                                   np.sqrt(np.sum(ye_flux_line**2))
                         
@@ -801,10 +804,32 @@ for i in range(n_iter):
                     plt.close()
                     
                     #=== Figure 2: corner plot
-                    var_posterior = dict(zip(var_names, 
-                                            [trace.posterior[key] for key in var_names]))
-                    _ = corner.corner(var_posterior)
-
+                    var_labels = [
+                        fig_axis_labels[k] \
+                        if k in fig_axis_labels.keys() else k \
+                            for k in var_names
+                    ]
+                    
+                    flatchain = np.array([trace.posterior[v].data.flatten()\
+                                         for v in var_names]).T
+                    thruths = np.array([params_best[v] for v in var_names])
+                    thruths_sigup = np.array([params_best_full[v][1] \
+                                              for v in var_names])
+                    thruths_siglo = np.array([params_best_full[v][2] \
+                                              for v in var_names])
+                    thruths_up = thruths + thruths_sigup
+                    thruths_lo = thruths - thruths_siglo
+                    fig = corner.corner(flatchain, 
+                                        labels=var_labels, 
+                                        truths=thruths,
+                                        #show_titles=True, 
+                                        label_kwargs=dict(fontsize=14),
+                                        use_math_text=True, 
+                                        #title_quantiles=[thruths_lo, thruths, thruths_up],
+                    )
+                    corner.overplot_lines(fig, thruths_up, color="k", ls=':')
+                    corner.overplot_lines(fig, thruths_lo, color="k", ls=':')
+                    
                     fname = f"{model_label}-corner.png"
                     fpath = os.path.join(fpath_outputs, fname)
                     plt.savefig(fpath, bbox_inches='tight', dpi=220)
