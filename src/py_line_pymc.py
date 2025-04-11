@@ -15,7 +15,6 @@ from copy import deepcopy
 from scipy.integrate import simpson
 
 import routines_spec as rspec
-#import config_lres as cfg
 import config_mhres as cfg
 import config_lines as cl
 from datetime import datetime
@@ -89,20 +88,17 @@ if __name__ == "__main__":
     mp.set_start_method('spawn', force=True)
 
     #=== user inputs ================================================
-    save_trace = False
-
     sn_thresh = 2.0 # S/N threshold for line detection (either fit or skip)
+    save_trace = False # save PyMC posterior trace or not
+    step_method = cfg.step_method # PyMC sampling method
 
-    # fitting windows
-    hwhm_kms = 3500 # fit window: lines +/- hwhm [km/s] (gratings)
-    #hwhm_kms = 20000 # (PRISM)
-
-    hwhm_exclude = 100 # exclude window: unfitted lines +/-hwhm [km/s] (gratings)
-    #hwhm_exclude = 5000 # (PRISM)
-
-    # is a line close to its neighbour?
-    set_separation_kms = 7000 # FWHM ([O III] 4959,5007 are fitted tigether)
-    #set_separation_kms = 30000 # FWHM
+    # fitting windows (M/H-Res Gratings)
+    set_hwhm_kms = 3500 # fit window: lines +/- hwhm [km/s] (gratings)
+    fit_exclude_hwhm_kms = 100 # exclude window: unfitted lines +/-hwhm [km/s] (gratings)
+    
+    # fitting windows (L-Res PRISM)
+    #set_hwhm_kms = 20000 # (PRISM)
+    #fit_exclude_hwhm_kms = 5000 # (PRISM)
 
     # random seed
     #RANDOM_SEED = 8927 # Initialize random number generator
@@ -110,55 +106,88 @@ if __name__ == "__main__":
     #az.style.use("arviz-darkgrid")
 
 
-    #=== set up paths and fitted lines ==============================
+    #=== set up paths ===============================================
+    # directories: working dir, outputs
     fpath_runs = f'../data/sample-{cfg.label_catalog}'
     fpath_outputs = os.path.join(fpath_runs, cfg.fdir_outputs)
     if not os.path.exists(fpath_outputs):
         os.makedirs(fpath_outputs)
-
-    step_method = cfg.step_method
-
-    # sort the lines by wavelength
-    line_keys = cl.line_keys
-    lw = cl.lw
-    line_wavs = [cl.lines_dict[k][0][0] for k in line_keys]
-    idxs_sorted = np.argsort(line_wavs)
-    line_wavs = np.array(line_wavs)[idxs_sorted]
-    line_keys = np.array(line_keys)[idxs_sorted]
-
-    # line dictionary
-    line_dict = deepcopy(cl.lines_dict)
-    [line_dict.pop(k) for k in cl.lines_dict.keys() if not (k in line_keys)]
-
-    # is a line close to its neighbour? combine close lines into a set
-    vel_fwhm_kms = (line_wavs[1:] - line_wavs[:-1]) / line_wavs[:-1] * 3e5 * 2.355
-    is_set = vel_fwhm_kms < set_separation_kms
-
-    # make sets
-    line_keys_sets = []
-    i = 0
-    line_keys_sets.append([line_keys[0]])
-    for _cond_cur in is_set:
-        if _cond_cur:
-            line_keys_sets[-1].extend([line_keys[i+1]])
-        else:
-            line_keys_sets.append([line_keys[i+1]])
-        i += 1
-
-    # list of lines excluded from fit
-    lines_excl = []
-    for k in cl.lw_exclude_lines:
-        lines_excl.extend(lw[k])
-
-
-    #=== sample selection ================================================
+    
+    # path to sample of spectra
     fpath = os.path.join(
         fpath_runs, 
-        #'sample-NIV_1483_NIV_1487_NIII_1750_emitters.csv',
         'sample-NII_6549_NII_6584_emitters.csv',
         #'sample-NIV_1483_NIV_1487_NIII_1750_emitters.csv',
     )
 
+    #=== process user-selected lines ================================
+    # sort the lines by wavelength
+    line_keys = cl.line_keys
+    line_wavs = [cl.lines_dict[k][0][0] for k in line_keys]
+    idxs_sorted = np.argsort(line_wavs)
+    line_wavs = np.array(line_wavs)[idxs_sorted]
+    line_keys = np.array(line_keys)[idxs_sorted]
+    
+    # does a line have neighbours? make sets of nearby lines
+    wav_edges = np.c_[[line_wavs - set_hwhm_kms / 3e5 * line_wavs,
+                       line_wavs + set_hwhm_kms / 3e5 * line_wavs]].T
+    line_sets = [get_line_wavel(
+        w1, w2, 
+        lines_dict=cl.lines_dict, 
+        exclude=cl.lw_exclude_sets
+    ) for w1, w2 in wav_edges]
+    line_set_keys = []
+    line_set_wavs = []
+    for keys, wavs in line_sets:
+        # sort the lines by wavelength in each set
+        sorted_indices = np.argsort(np.array(wavs).flatten())
+        line_set_keys.append([keys[i] for i in sorted_indices])
+        line_set_wavs.append([wavs[i] for i in sorted_indices])
+    
+    # dictionary of all lines that have been identified at this point
+    lines_all_dict = {}
+    for set_keys, set_wavs in zip(line_set_keys, line_set_wavs):
+        for key, wav in zip(set_keys, set_wavs):
+            lines_all_dict[key] = [wav]
+    
+    # Remove duplicate lists from line_set_keys and preserve 
+    # the ascending-wavelegth order 
+    # (useful later for checking if nearby lines are resolved)
+    seen = set()
+    line_set_keys = [
+        sublist for sublist in line_set_keys 
+        if tuple(sublist) not in seen and not seen.add(tuple(sublist))
+    ]
+    
+    # line dictionary
+    #line_dict = deepcopy(cl.lines_dict)
+    #[line_dict.pop(k) for k in cl.lines_dict.keys() if not (k in line_keys)]
+
+    # is a line close to its neighbour? can later combine close lines into a set
+    #vel_fwhm_kms = (line_wavs[1:] - line_wavs[:-1]) / line_wavs[:-1]*3e5*2.355
+    #is_set = vel_fwhm_kms < 2*set_hwhm_kms
+
+    # make sets
+    #line_keys_sets = []
+    #i = 0
+    #line_keys_sets.append([line_keys[0]])
+    #for _cond_cur in is_set:
+    #    if _cond_cur:
+    #        line_keys_sets[-1].extend([line_keys[i+1]])
+    #    else:
+    #        line_keys_sets.append([line_keys[i+1]])
+    #    i += 1
+    #
+    #print(line_keys_sets)
+    
+    
+    # list of lines excluded from fit
+    lines_excl = []
+    for k in cl.lw_exclude_lines:
+        lines_excl.extend(cl.lw[k])
+
+
+    #=== sample selection ================================================
     df_sample = pd.read_csv(fpath, comment='#')
     print("data table size:", len(df_sample))
 
@@ -245,14 +274,14 @@ if __name__ == "__main__":
                     
                     #=== spectral fit windows
                     # get emission lines in the spectral range
-                    line_keys_cur, line_wavs_cur = get_line_wavel(
+                    line_keys_spec, line_wavs_cur = get_line_wavel(
                         xmin_spec, xmax_spec, 
-                        lines_dict=line_dict, 
+                        lines_dict=lines_all_dict, 
                         exclude=cl.lw_exclude_sets
                     )
                     
-                    if len(line_keys_cur) == 0:
-                        _line_keys = list(line_dict.keys())
+                    if len(line_keys_spec) == 0:
+                        _line_keys = list(lines_all_dict.keys())
                         skipped_file['nolines'].append(fname_spec+f'\t({_line_keys})')
                         print(f"  - Skipping ... No lines in the spectral range!\n\t\t({_line_keys})")
                         continue
@@ -260,15 +289,15 @@ if __name__ == "__main__":
                     # create fit windows around the fitted lines
                     fit_range = [[xmin_spec, xmax_spec]]
                     fit_edges = rspec.exclude_fit_windows(
-                        fit_range, hwhm=hwhm_kms, 
+                        fit_range, hwhm=set_hwhm_kms, 
                         lines=np.concatenate(line_wavs_cur)
                     )
                     fit_edges = fit_edges.flatten()[1:-1].reshape(-1, 2)
                     
                     # exclude lines that are not fitted
-                    fit_edges = rspec.exclude_fit_windows(
-                        fit_edges, lines=lines_excl, hwhm=hwhm_exclude
-                    )
+                    #fit_edges = rspec.exclude_fit_windows(
+                    #    fit_edges, lines=lines_excl, hwhm=fit_exclude_hwhm_kms
+                    #)
                     
                     # update the selected spectral data
                     sampleFit.update_fit_window(fit_edges)
@@ -285,44 +314,45 @@ if __name__ == "__main__":
                     xmin_mask, xmax_mask = X_rf.min(), X_rf.max()
                     
                     # get emission lines in the spectral range
-                    line_keys_cur, line_wavs_cur = get_line_wavel(
+                    line_keys_spec, line_wavs_cur = get_line_wavel(
                         xmin_mask, xmax_mask, 
-                        lines_dict=line_dict, 
+                        lines_dict=lines_all_dict, 
                         exclude=cl.lw_exclude_sets
                     )
                     
-                    if len(line_keys_cur) == 0:
+                    if len(line_keys_spec) == 0:
                         skipped_file['nolines'].append(fname_spec)
                         print("  - Skipping ... No lines in the spectral range!")
                         continue
                     
-                    # keep the line sets that are observed in the current spectrum
-                    line_keys_sets_cur = []
-                    for s in line_keys_sets:
-                        is_in_cur = [k in line_keys_cur for k in s]
-                        set_cur = np.array(s)[is_in_cur]
-                        if len(set_cur) > 0:
-                            line_keys_sets_cur.append(list(set_cur))
+                    # keep the line sets that are observed 
+                    # in the current spectrum
+                    line_set_keys_spec = []
+                    for s in line_set_keys:
+                        is_in_spec = [k in line_keys_spec for k in s]
+                        spec_set = np.array(s)[is_in_spec]
+                        if len(spec_set) > 0:
+                            line_set_keys_spec.append(list(spec_set))
                     
                     # loop over individual lines or sets of lines
-                    n_sets = len(line_keys_sets_cur)
+                    n_sets = len(line_set_keys_spec)
                     for j in range(n_sets):
                         
                         # iterate over the sub sets of lines
-                        line_keys_set = line_keys_sets_cur[j]
-                        line_wavs_set = [cl.lines_dict[k][0][0] \
-                                            for k in line_keys_set]
+                        line_set_keys_j = line_set_keys_spec[j]
+                        line_set_wavs_j = [lines_all_dict[k][0][0] \
+                                           for k in line_set_keys_j]
                         
-                        n_lines = len(line_keys_set)
+                        n_lines = len(line_set_keys_j)
                         
                         #=== check that the lines are detected in the spectrum
                         # if not, skip - no need to fit them
-                        cols_sn_cur = [f'sn_{l}' for l in line_keys_set]
+                        cols_sn_i = [f'sn_{l}' for l in line_set_keys_j]
                         print(f'  - spectrum: {sampleFit.fnames[0]}')
 
                         cols_df = df_lines_sn.columns
-                        has_line = np.array([c in cols_df for c in cols_sn_cur])
-                        cols_sn_avail = list(np.array(cols_sn_cur)[has_line])
+                        has_line = np.array([c in cols_df for c in cols_sn_i])
+                        cols_sn_avail = list(np.array(cols_sn_i)[has_line])
                         
                         skip_set = False
                         mask_file = df_lines_sn.file.isin([sampleFit.fnames[0]])
@@ -337,20 +367,20 @@ if __name__ == "__main__":
                         else:
                             skip_set = True
                         if skip_set:
-                            print(f"  - fitting lines: {line_keys_set} ...")
+                            print(f"  - fitting lines: {line_set_keys_j} ...")
                             print(f"  - Skipping... No lines with at least {sn_thresh}-sigma detection.")
                             continue
                         
                         # get the wavelength range containing the fitted lines
                         fit_edges = rspec.exclude_fit_windows(
-                            fit_range, hwhm=hwhm_kms, lines=line_wavs_set
+                            fit_range, hwhm=set_hwhm_kms, lines=line_set_wavs_j
                         )
                         fit_edges = fit_edges.flatten()[1:-1].reshape(-1, 2)
 
                         # exclude lines that are not fitted
-                        fit_edges = rspec.exclude_fit_windows(
-                            fit_edges, lines=lines_excl, hwhm=hwhm_exclude
-                        )
+                        #fit_edges = rspec.exclude_fit_windows(
+                        #    fit_edges, lines=lines_excl, hwhm=fit_exclude_hwhm_kms
+                        #)
                         
                         # update the selected spectral data
                         sampleFit.update_fit_window(fit_edges)
@@ -373,21 +403,21 @@ if __name__ == "__main__":
                             'fwhm': 200,
                         }
                         amplitude_params = dict(zip([k+'_amplitude' \
-                                                        for k in line_keys_set],
-                                                    [0.0 for k in line_keys_set]))
+                                                        for k in line_set_keys_j],
+                                                    [0.0 for k in line_set_keys_j]))
                         start_params |= amplitude_params
                         
                         # check if the spectrum has already been fitted and if so, 
                         # reuse it's best parameters as a current starting step
                         j_iter = 0
-                        lines_str = '_'.join(line_keys_set)
+                        lines_str = '_'.join(line_set_keys_j)
                         model_label = f'{obj_id}-{fname_spec}-{grating}-iter{j_iter}-{lines_str}-step{step_method}'
                         model_label_any = f'{obj_id}-{fname_spec}-{grating}-iter*-{lines_str}-step{step_method}'
                         fpaths = os.path.join(fpath_outputs, f"{model_label_any}-line_props.fits")
                         
                         if len(glob.glob(fpaths)) > 0:
                             print(f"\n  - Iteration {j_iter}... Set {j+1}/{n_sets}...")
-                            print(f"  - fitting lines: {line_keys_set} ...")
+                            print(f"  - fitting lines: {line_set_keys_j} ...")
                             print(f"  - Skipping... Already fitted.")
                             continue # VR
                             
@@ -419,7 +449,7 @@ if __name__ == "__main__":
                                     start_params[key] = val
 
                         print(f"\n  - Iteration {j_iter}... Set {j+1}/{n_sets}...")
-                        print(f"  - fitting lines: {line_keys_set} ...")
+                        print(f"  - fitting lines: {line_set_keys_j} ...")
                         
                         # pickle the fitted data
                         d = {'X': X_fit, 'Y': Y_fit, 'Yerr': Yerr_fit, 
@@ -450,46 +480,46 @@ if __name__ == "__main__":
                             # x values for fitting the lines and continuum
                             x_rf_guess = X_fit / (1 + z_guess)
                             x_rf = X_fit / (1 + z)
-                            x_cont = np.linspace(-1, 1, len(X_fit), endpoint=True)
+                            x_cont = np.linspace(-1, 1, len(X_fit), 
+                                                 endpoint=True)
                             
-                            # combine lines that are not resolved,
-                            # the resolution is defined as sep < 2*FWHM(instrum)
-                            fwhm_intrum_list = []
-                            for line_key, line_wav in zip(line_keys_set, 
-                                                        line_wavs_set):
+                            # merge models of lines that are not resolved,
+                            # the resolution is defined as sep<1.5*FWHM(instrum)
+                            fwhm_intrum = []
+                            for line_key, line_wav in zip(line_set_keys_j, 
+                                                          line_set_wavs_j):
                                 
                                 # spec resolution at the wavel
                                 sig_disp = sampleFit.get_dispersion(
                                     [obj_id], line_wav, [z_guess]
                                 )[0]
                                 fwhm_disp_kms = sig_disp/line_wav*3e5*2.355 # km/s
-                                fwhm_intrum_list.append(fwhm_disp_kms)
+                                fwhm_intrum.append(fwhm_disp_kms)
                             
-                            line_wavs_set = np.array(line_wavs_set)
-                            fwhm_intrum_list = np.array(fwhm_intrum_list)
-                            sep_fwhm_kms = np.diff(line_wavs_set) /\
-                                        line_wavs_set[:-1] * 3e5
-                            unresolved = 1.5*fwhm_intrum_list[:-1] > sep_fwhm_kms
-                            print(line_wavs_set)
+                            line_set_wavs_j = np.array(line_set_wavs_j)
+                            fwhm_intrum = np.array(fwhm_intrum)
+                            sep_fwhm_kms = np.diff(line_set_wavs_j) /\
+                                                   line_set_wavs_j[:-1] * 3e5
+                            unresolved = 1.5*fwhm_intrum[:-1] > sep_fwhm_kms
                             if unresolved.any():
                                 # idx to remove
                                 idx2remove = np.argwhere(unresolved).flatten() + 1
                                 
                                 # set one mean wavelength for the combined lines
                                 for idx in idx2remove:
-                                    merged_wav = np.mean(line_wavs_set[idx-1:idx+1])
-                                    line_wavs_set[idx-1] = merged_wav
+                                    merged_wav = np.mean(line_set_wavs_j[idx-1:idx+1])
+                                    line_set_wavs_j[idx-1] = merged_wav
                                 
-                                line_wavs_set = np.delete(line_wavs_set, idx2remove)
+                                line_set_wavs_j = np.delete(line_set_wavs_j, idx2remove)
                                 
                                 # replace line keys with a combined ine
-                                lines_combined = [line_keys_set[i] \
+                                lines_combined = [line_set_keys_j[i] \
                                     for i in np.insert(idx2remove, 0,
                                                     idx2remove[0]-1)]
                                 merged_lines = '_'.join([line \
                                                         for line in lines_combined])
-                                line_keys_set[idx2remove[0]-1] = merged_lines
-                                line_keys_set = [key for key in line_keys_set \
+                                line_set_keys_j[idx2remove[0]-1] = merged_lines
+                                line_set_keys_j = [key for key in line_set_keys_j \
                                                     if not key in merged_lines[1:]]
                                 start_params[merged_lines+'_amplitude'] =\
                                     start_params[lines_combined[0]+'_amplitude']
@@ -500,7 +530,6 @@ if __name__ == "__main__":
                                 if j_iter > 0:
                                     start_params[merged_lines+'_amplitude'] =\
                                         prev_params[merged_lines+'_amplitude']
-                            print(line_wavs_set)
                             print(f"  - starting params: {start_params}")
                             
                             # model components
@@ -508,8 +537,8 @@ if __name__ == "__main__":
                             Y_lines_list = []
                             fwhm = pm.Uniform(f"fwhm", 
                                             lower=0.1, upper=2000.0) # [km/s]
-                            for line_key, line_wav in zip(line_keys_set, 
-                                                        line_wavs_set):
+                            for line_key, line_wav in zip(line_set_keys_j, 
+                                                        line_set_wavs_j):
                                 
                                 # spec resolution at the wavel
                                 sig_disp = sampleFit.get_dispersion(
@@ -681,8 +710,8 @@ if __name__ == "__main__":
                         sig_integ = 7.0 # sigmas to integrate over for Flux, SN, EW
                         n_interp = 1000
                         X_rf = X_fit / (1 + params_best['z'])
-                        print(line_keys_set, line_wavs_set)
-                        for k, w in zip(line_keys_set, line_wavs_set):
+                        print(line_set_keys_j, line_set_wavs_j)
+                        for k, w in zip(line_set_keys_j, line_set_wavs_j):
                             
                             # spec resolution at the wavel
                             disp_sig_ang = sampleFit.get_dispersion(
@@ -700,10 +729,16 @@ if __name__ == "__main__":
                                 print(f'  - {k}: no valid data points.')
                                 continue
                             
-                            if len(line_keys_set) > 1:
+                            # posterior flux of the continuum
+                            y_cont_samples = trace.posterior['Y_cont'].data.reshape(-1,nobs)[:,is_line]
+                            y_cont = np.array([mode_in_hdi(y_cont_samples[:,i])\
+                                               for i in range(n_obs_line)]).T
+                            ye_cont_flux = 0.5 * (y_cont[1] + y_cont[2])
+                            
+                            if len(line_set_keys_j) > 1:
                                 # get posterior fluxes of all but the current 
                                 # components
-                                line_keys_sub = deepcopy(line_keys_set)
+                                line_keys_sub = deepcopy(line_set_keys_j)
                                 line_keys_sub.pop(line_keys_sub.index(k)) # other comps
                                 y_sub_samples = np.array([
                                     trace.posterior[f'Y_{k_comp}'].data.reshape(-1, nobs)[:,is_line]\
@@ -718,15 +753,9 @@ if __name__ == "__main__":
                                 ).T # [[mode,sigup,siglo], ndata]
                                 ye_sub = 0.5*(y_sub[1] + y_sub[2])
                                 
-                                # posterior flux of the continuum
-                                y_cont_samples = trace.posterior['Y_cont'].data.reshape(-1,nobs)[:,is_line]
-                                y_cont = np.array([mode_in_hdi(y_cont_samples[:,i]) \
-                                                for i in range(n_obs_line)]).T
-                                
                                 # calculating SNR(component): 
                                 # subtract all components except the current one
                                 # and propagate the uncertainty 
-                                ye_cont_flux = 0.5 * (y_cont[1] + y_cont[2])
                                 y_flux_line = (Y_fit[is_line] - y_sub[0])\
                                                - y_cont[0]
                                 ye_flux_line = np.sqrt(
@@ -871,7 +900,7 @@ if __name__ == "__main__":
                         [ax.plot(X_rf, 
                                 trace.posterior[f'Y_{k}'].median(axis=(0,1)).data,
                                 lw=1, label=k, ls='--') \
-                            for k in line_keys_set]
+                            for k in line_set_keys_j]
                         
                         axd.errorbar(X_rf, diff_chi, yerr=1.0, fmt='o', color='k', 
                                     ms=1.5, elinewidth=1, zorder=10)
@@ -885,8 +914,8 @@ if __name__ == "__main__":
                         axd.axhline(0.0, ls='-', color='k', lw=0.5)
 
                         # annotate spectral lines
-                        [ax.axvline(w, ls='--', lw=0.5, c='C4') for w in line_wavs_set]
-                        title = ', '.join(line_keys_set)
+                        [ax.axvline(w, ls='--', lw=0.5, c='C4') for w in line_set_wavs_j]
+                        title = ', '.join(line_set_keys_j)
                         ax.set_title(title, fontsize=8)
                         ax.legend(fontsize=8)
                         
