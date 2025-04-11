@@ -2,6 +2,7 @@ import glob, os, pickle, sys
 
 import arviz as az
 import corner
+import multiprocessing as mp
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -84,6 +85,8 @@ def mode_in_hdi(samples, bw_fct=2, hdi_prob=0.68, multimodal=False):
 
 
 if __name__ == "__main__":
+    
+    mp.set_start_method('spawn', force=True)
 
     #=== user inputs ================================================
     save_trace = False
@@ -686,49 +689,57 @@ if __name__ == "__main__":
                                 [obj_id], w, [params_best['z']])
                             
                             #=== compute S/N(Line)
-                            velocity_sig_ang = params_best['fwhm'] / 2.355 / 3e5 * w
+                            velocity_sig_ang = params_best['fwhm']/2.355/3e5*w
                             total_sig_ang = np.sqrt(disp_sig_ang**2 +\
                                                     velocity_sig_ang**2)
-                            is_line = (X_rf > (w - sig_integ * total_sig_ang)) &\
-                                    (X_rf < (w + sig_integ * total_sig_ang))
+                            is_line = (X_rf > (w - sig_integ*total_sig_ang)) &\
+                                      (X_rf < (w + sig_integ*total_sig_ang))
                             n_obs_line = is_line.sum()
                             print(f'  - {k} n_data: {n_obs_line}')
                             if n_obs_line == 0:
                                 print(f'  - {k}: no valid data points.')
                                 continue
                             
-                            # get posterior fluxes of model components
-                            line_keys_sub = deepcopy(line_keys_set)
-                            line_keys_sub.pop(line_keys_sub.index(k)) # other comps
-                            y_sub_samples = np.array([
-                                trace.posterior[f'Y_{k_comp}'].data.reshape(-1,
-                                                                nobs)[:,is_line]\
-                                for k_comp in line_keys_sub]) # comps to sub.
-                            if y_sub_samples.ndim < 3:
-                                y_sub_samples = np.atleast_3d(y_sub_samples).T
-                            y_sub_samples = y_sub_samples.sum(axis=0) # sum comps.
-                            
-                            y_sub = np.array(
-                                [mode_in_hdi(y_sub_samples[:,i]) \
-                                    for i in range(n_obs_line)]
-                            ).T # [[mode,sigup,siglo], ndata]
-                            ye_sub = 0.5*(y_sub[1] + y_sub[2])
-                            
-                            # posterior flux of the continuum
-                            y_cont_samples = trace.posterior['Y_cont'].data.reshape(-1,nobs)[:,is_line]
-                            y_cont = np.array([mode_in_hdi(y_cont_samples[:,i]) \
-                                            for i in range(n_obs_line)]).T
-                            
-                            # calculating SNR(component): 
-                            # subtract all components except the current one
-                            # and propagate the uncertainty 
-                            ye_cont_flux = 0.5 * (y_cont[1] + y_cont[2])
-                            y_flux_line = (Y_fit[is_line] - y_sub[0]) - y_cont[0]
-                            ye_flux_line = np.sqrt(
-                                Yerr_fit[is_line]**2 + ye_cont_flux**2 + ye_sub**2
-                            )
+                            if len(line_keys_set) > 1:
+                                # get posterior fluxes of all but the current 
+                                # components
+                                line_keys_sub = deepcopy(line_keys_set)
+                                line_keys_sub.pop(line_keys_sub.index(k)) # other comps
+                                y_sub_samples = np.array([
+                                    trace.posterior[f'Y_{k_comp}'].data.reshape(-1, nobs)[:,is_line]\
+                                    for k_comp in line_keys_sub]) # sub. comps
+                                if y_sub_samples.ndim < 3:
+                                    y_sub_samples = np.atleast_3d(y_sub_samples).T
+                                y_sub_samples = y_sub_samples.sum(axis=0) # sum comps.
+                                
+                                y_sub = np.array(
+                                    [mode_in_hdi(y_sub_samples[:,i]) \
+                                        for i in range(n_obs_line)]
+                                ).T # [[mode,sigup,siglo], ndata]
+                                ye_sub = 0.5*(y_sub[1] + y_sub[2])
+                                
+                                # posterior flux of the continuum
+                                y_cont_samples = trace.posterior['Y_cont'].data.reshape(-1,nobs)[:,is_line]
+                                y_cont = np.array([mode_in_hdi(y_cont_samples[:,i]) \
+                                                for i in range(n_obs_line)]).T
+                                
+                                # calculating SNR(component): 
+                                # subtract all components except the current one
+                                # and propagate the uncertainty 
+                                ye_cont_flux = 0.5 * (y_cont[1] + y_cont[2])
+                                y_flux_line = (Y_fit[is_line] - y_sub[0])\
+                                               - y_cont[0]
+                                ye_flux_line = np.sqrt(
+                                    Yerr_fit[is_line]**2 + ye_cont_flux**2 + ye_sub**2
+                                )
+                            else:
+                                y_flux_line = Y_fit[is_line] - y_cont[0]
+                                ye_flux_line = np.sqrt(
+                                    Yerr_fit[is_line]**2 + ye_cont_flux**2
+                                )
+                                
                             sn_line = np.sum(y_flux_line) /\
-                                    np.sqrt(np.sum(ye_flux_line**2))
+                                      np.sqrt(np.sum(ye_flux_line**2))
                             
                             # compute line Flux
                             Y_line_samples = trace.posterior[f'Y_{k}'].data.reshape(-1,nobs)[:,is_line]
@@ -742,7 +753,6 @@ if __name__ == "__main__":
                                 x=X_fit[is_line] / (1 + params_best['z']), 
                                 axis=1)
                             Y_eqw = mode_in_hdi(Y_eqw_samples)
-                            del Y_line_samples, Y_eqw_samples, y_cont_samples, y_sub
                             
                             # append values
                             cols_line += [f'{k}_SN']
