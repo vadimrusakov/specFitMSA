@@ -1,8 +1,9 @@
-import glob, os, pickle, sys
+import glob, os, pickle, random, shutil, sys
 
 import arviz as az
 import corner
 import multiprocessing as mp
+mp_start_method = 'spawn'
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -85,7 +86,9 @@ def mode_in_hdi(samples, bw_fct=2, hdi_prob=0.68, multimodal=False):
 
 if __name__ == "__main__":
     
-    mp.set_start_method('spawn', force=True)
+    mp.set_start_method(mp_start_method, force=True)
+    if mp_start_method=='spawn':
+        os.environ["PYTENSOR_FLAGS"] = f"compiledir=/tmp/pytensor_{os.getuid()}_{random.randint(0, 1000000)}"
 
     #=== user inputs ================================================
     sn_thresh = 2.0 # S/N threshold for line detection (either fit or skip)
@@ -189,6 +192,7 @@ if __name__ == "__main__":
 
     #=== sample selection ================================================
     df_sample = pd.read_csv(fpath, comment='#')
+    df_sample = df_sample.iloc[:300] # VR: Temporary
     print("data table size:", len(df_sample))
 
     # load a SNR catalog (for SN cuts of fitted lines)
@@ -938,3 +942,8 @@ if __name__ == "__main__":
             log_file.write(f"{key}:\n")
             for value in values:
                 log_file.write(f"  - {value}\n")
+    
+    # when done fitting, clean up the compiled files produced by the C-linker
+    if "PYTENSOR_FLAGS" in os.environ:
+        shutil.rmtree(os.environ["PYTENSOR_FLAGS"].split("=")[1], 
+                      ignore_errors=True)
