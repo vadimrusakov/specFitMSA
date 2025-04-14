@@ -5,49 +5,18 @@ from grizli.utils import get_line_wavelengths
 
 #=== dictionary of spectroscopic lines
 """ Load spec line list """
-lw, lr = get_line_wavelengths()
+lw, lr = get_line_wavelengths() # a set of lines from grizli
+
+# add some line options
 lw['OIII-1660'] = [1660.809]
 lw['OIII-1665'] = [1665.85]
 lw['NeIII-3343'] = [3343.4]
 lw['OII-3727'] = [3727.092]
 lw['OII-3729'] = [3729.875]
 lw['NII-5756'] = [5756.2]
-
-lw['HeI-4121'] = [4120.8154]
-lw['HeI-4144'] = [4143.761]
-lw['HeI-4169'] = [4168.967]
-lw['HeI-4388']  = [4387.9296]
-#lw['NeI-4412']  = [4412.285]
-#lw['FeII-4413']  = [4413.600] # found in some objects
-#lw['NeII-4413']  = [4413.113]
-#lw['FeII-4205']  = [4205.5382] # found in some objects
-lw['FeII-4205'] = [4452.098] # found in some objects
-
-# Ne IV] 1601.5, 1601.7, 2421.8, 2424.4
-# [S II] 4077.5, 4069.8
-# [O II] 2471.0, 2471.1
-# [N I] 5200.3, 5197.9, 3466.5
-#mylw = {}
-#mylw['NeIV'] = [1601.5, 2421.8]
-#mylw['ArIV'] = [4740, 4711, 2689.0, 2854.5]
-#mylw['OII'] = [2471.0]
-#mylw['NI'] = [5200.3, 3466.5]
-#mylw['NII'] = [3062.8]
-#mylw['OIII'] = [2321.0]
-#mylw['NeV'] = [3426, 1574.7]
-#mylw['OI'] =  [6363.8, 2972.3]
-#mylw['NeIII'] =  [3967.5, 1814.6]
-#mylw['MgV'] =  [2782.7, 1324.6]
-#mylw['SIII'] =  [3721.6]
-#mylw['ArV'] =  [6133.8, 2691.1]
-#mylw['ArIII'] =  [7135.8, 3005.2]
-
-# lam_vaccuum = lam_air * n, n=1.000293 for air
-
 lw['CII-4267'] = [4268.51]
 lw['CIV-1549'] = [1548.20]
 lw['CIV-1551'] = [1550.784]
-
 lw['NeIV-1601'] = [1601.5]
 lw['NeIV-2421'] = [2421.8]
 lw['ArIV-4740'] = [4740.0]
@@ -78,7 +47,8 @@ lw['NIV-1487'] = [1486.496]
 lw['SiIII-1883'] = [1883]
 lw['SiIII-1892'] = [1892]
 
-
+# a dictionary of lines (somewhat) commonly seen in JWST/NIRSpec spectra 
+# of high-redshift galaxies
 lines_dict = {'Lya_1215':     [ lw['Lya'],       ],
               'HeII_1640':    [ lw['HeII-1640'], ],
               'OIII_1660':    [ lw['OIII-1660'], ],
@@ -145,6 +115,7 @@ lines_dict = {'Lya_1215':     [ lw['Lya'],       ],
               'ArIII_3005':   [ lw['ArIII-3005'],],
               }
 
+# sets of lines to exclude from the line dictionary 'lw'
 lw_exclude_sets = [
     'QSO-UV-lines', 'Gal-UV-lines', 'full', 'highO32', 'lowO32',
     'Lya+CIV', 'Balmer 10kK', 'Balmer 10kK + MgII', 
@@ -158,12 +129,10 @@ lw_exclude_sets = [
     'OIII+OII', 'OII+Ne', 'CIII-1906x', 'OIII', 
 ]
 
+# individual lines to exclude from the line dictionary 'lw'
 lw_exclude_lines = [
     'MgII',
-    'NeV-3346', 'NeVI-3426',
-    'HeI-3820', 'HeI-3889',
     'H7', 'H8', 'H9', 'H10', 'H11', 'H12',
-    #'SII-4075', 'SII-4070', 'SII-4078'
 ]
 
 lw_exclude = lw_exclude_sets + lw_exclude_lines
@@ -219,7 +188,7 @@ lines_cnohe = [
 cols_tem_diag = [
     'OIII_4363', 'OIII_4959', 'OIII_5007', 
     'NII_5756', 'NII_6549', 'NII_6584',
-    'NeV_1575', 'NeV_3426',
+    #'NeV_1575', 'NeV_3426',
 ]
 
 cols_den_diag = [
@@ -246,11 +215,7 @@ cols_doublets = [
     'OII_7323', 'OII_7332',
 ]
 
-#line_keys = cols_tem_diag + cols_den_diag + cols_hydrogen
-#line_keys = lines_MgS + lines_Ar + lines_Ne +\
-#            lines_cnohe + cols_tem_diag + cols_den_diag + cols_hydrogen
-line_keys = ['SIII_3722', 'OII_3727', 'OII_3729']
-line_keys = np.unique(line_keys)
+lines_all = list(lines_dict.keys())
 
 #===============================================================================
 #=== for interfacing with PyNeb ================================================
