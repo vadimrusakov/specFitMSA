@@ -33,9 +33,9 @@ Dependencies: Requires `config.py`, `config_lines.py`, and libraries like `arviz
 import glob, os, pickle, random, shutil, sys
 import arviz as az
 import corner
+import matplotlib.pyplot as plt
 import multiprocessing as mp
 mp_start_method = 'spawn'
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
