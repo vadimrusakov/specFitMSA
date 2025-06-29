@@ -180,7 +180,7 @@ lines_neutral = [
 lines_MgS = [
     'MgV_2783', 'MgV_1325', 
     'SII_4070', 'SII_4078',
-    'SIII_3722','SIII_6312','SIII_9069','SIII_9532',
+    'SIII_3722','SIII_6312','SIII_9069','SIII_9531',
 ]
 lines_Ar = [
     'ArIII_3005','ArIII_7136','ArIII_7751',
