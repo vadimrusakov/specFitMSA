@@ -976,7 +976,7 @@ if __name__ == "__main__":
                                     zorder=9)
                     line_names = [v for v in trace.posterior.data_vars if 'Y_' in v]
                     [ax.plot(X_rf, 
-                            trace.posterior[f'Y_{k}'].median(axis=(0,1)).data,
+                            trace.posterior[k].median(axis=(0,1)).data,
                             lw=1, label=k, ls='--') \
                         for k in line_names]
                     
