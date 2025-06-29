@@ -20,6 +20,7 @@ GRATINGS_MHRES = GRATINGS_MRES + GRATINGS_HRES
 #=== fitting inputs
 #label_project = 'example'
 #label_project = 'broad_lines_rusakov25_mhres'
+#label_project = 'highz_n_emitters_broad_v3'
 label_project = 'highz_n_emitters_v3'
 date_DJA = '2025_03_31' # date of the local DJA spec catalog
 gratings = GRATINGS_MHRES
@@ -42,10 +43,15 @@ line_fwhm_kms = 400 # line velocity FWHM [km/s]
 #line_fwhm_kms = 2e3 # line velocity FWHM [km/s]
 
 # lines to fit
-line_keys = ['OIII_4363']
+#line_keys = ['Ha_6565']
 #line_keys = cl.cols_tem_diag + cl.cols_den_diag + cl.cols_hydrogen
 #line_keys = cl.cols_high_ion
+line_keys = cl.lines_MgS + cl.lines_Ar + cl.lines_Ne +\
+            cl.lines_cnohe + cl.cols_tem_diag + cl.cols_den_diag + cl.cols_hydrogen
 line_keys = np.unique(line_keys)
+
+#broad_lines = ['Ha_6565']
+broad_lines = []
 
 #=== fitting outputs
 save_trace = False # save PyMC posterior trace or not
@@ -59,14 +65,14 @@ fpath_nirspec = os.path.join(
     f'nirspec_tables-{date_DJA}'
 )
 
-fdir_data = f'../data/project_{label_project}' # sample directory
-fdir_outputs = os.path.join(fdir_data, f"pymc_outputs")
-fdirs = [fdir_data, fdir_outputs]
+fpath_project = f'../data/project_{label_project}' # sample directory
+fpath_outputs = os.path.join(fpath_project, f"pymc_outputs")
+fdirs = [fpath_project, fpath_outputs]
 for fdir in fdirs:
     if not os.path.exists(fdir):
         os.makedirs(fdir)
 
-fpath_spec = os.path.join(fdir_data, fname_spec) # path to spec_list
-fpath_lines_snr = os.path.join(fdir_data, fname_snr)
-fpath_flux = os.path.join(fdir_data, fname_flux)
+fpath_spec = os.path.join(fpath_project, fname_spec) # path to spec_list
+fpath_lines_snr = os.path.join(fpath_project, fname_snr)
+fpath_flux = os.path.join(fpath_project, fname_flux)
 fpath_extractions = os.path.join(fpath_nirspec, fname_extractions)
