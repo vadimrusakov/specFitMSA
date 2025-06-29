@@ -159,8 +159,8 @@ if __name__ == "__main__":
 
     #=== set up paths ===============================================
     # directories: working dir, outputs
-    if not os.path.exists(cfg.fdir_outputs):
-        os.makedirs(cfg.fdir_outputs)
+    if not os.path.exists(cfg.fpath_outputs):
+        os.makedirs(cfg.fpath_outputs)
     
     #=== process user-selected lines ================================
     # sort the lines by wavelength
@@ -453,7 +453,7 @@ if __name__ == "__main__":
                     lines_str = '_'.join(line_set_keys_j)
                     model_label = f'{obj_id}-{fname_spec}-{grating}-iter{j_iter}-{lines_str}-step{cfg.step_method}'
                     model_label_any = f'{obj_id}-{fname_spec}-{grating}-iter*-{lines_str}-step{cfg.step_method}'
-                    fpaths = os.path.join(cfg.fdir_outputs, f"{model_label_any}-line_props.fits")
+                    fpaths = os.path.join(cfg.fpath_outputs, f"{model_label_any}-line_props.fits")
                     
                     if len(glob.glob(fpaths)) > 0:
                         print(f"\n  - Iteration {j_iter}... Set {j+1}/{n_sets}...")
@@ -462,7 +462,7 @@ if __name__ == "__main__":
                         continue # VR
                         
                         #model_label = f'{obj_id}-{fname_spec}-{grating}-iter*-{lines_str}-step{cfg.step_method}'
-                        #fpaths = os.path.join(cfg.fdir_outputs, 
+                        #fpaths = os.path.join(cfg.fpath_outputs, 
                         #                      f"{model_label}-line_props.fits")
                         
                         labels = glob.glob(fpaths)
@@ -472,12 +472,12 @@ if __name__ == "__main__":
                         
                         # current iteration label
                         model_label = f'{obj_id}-{fname_spec}-{grating}-iter{j_iter}-{lines_str}-step{cfg.step_method}'
-                        fpaths = os.path.join(cfg.fdir_outputs, 
+                        fpaths = os.path.join(cfg.fpath_outputs, 
                                             f"{model_label}-line_props.fits")
 
                         # load results from prev iteration
                         model_label_prev = f'{obj_id}-{fname_spec}-{grating}-iter{j_iter-1}-{lines_str}-step{cfg.step_method}'
-                        fpaths_prev = os.path.join(cfg.fdir_outputs, 
+                        fpaths_prev = os.path.join(cfg.fpath_outputs, 
                                         f"{model_label_prev}-line_props.fits")
                         tab = Table.read(fpaths_prev)
                         tab_cols = tab.colnames
@@ -497,7 +497,7 @@ if __name__ == "__main__":
                         'flux_norm': sampleFit.flux_norm[0],
                     }
                     fname = f"{model_label}-data.pckl"
-                    fpath = os.path.join(cfg.fdir_outputs, fname)
+                    fpath = os.path.join(cfg.fpath_outputs, fname)
                     with open(fpath, 'wb') as f:
                         pickle.dump(d, f)
                     
@@ -699,7 +699,7 @@ if __name__ == "__main__":
                     # save trace
                     if cfg.save_trace:
                         fname = f"{model_label}-trace.nc"
-                        fpath = os.path.join(cfg.fdir_outputs, fname)
+                        fpath = os.path.join(cfg.fpath_outputs, fname)
                         trace.to_netcdf(fpath, compress=True)
                     
                     #=== get median parameters
@@ -735,7 +735,7 @@ if __name__ == "__main__":
                     model_dict['aic'] = aic
                     model_dict['nobs'] = nobs
                     model_dict['npar'] = npar
-                    model_dict['cfg.step_method'] = cfg.step_method
+                    model_dict['step_method'] = cfg.step_method
                     model_dict['nsteps'] = nsteps
                     model_dict['nthin'] = nthin
                     model_dict['nchains'] = nchains
@@ -746,7 +746,7 @@ if __name__ == "__main__":
 
                     # model columns
                     cols_model = ['model_label', 'redchisq', 'nobs', 'npar',
-                                'cfg.step_method', 'nsteps', 'ntune', 'nthin']
+                                'step_method', 'nsteps', 'ntune', 'nthin']
                     vals_model = [model_label, redchisq, nobs, npar, 
                                 cfg.step_method, nsteps, ntune, nthin]
                     columns += cols_model
@@ -893,7 +893,7 @@ if __name__ == "__main__":
                     tab_line_props = Table(data=np.array(values)[None, :], 
                                         dtype=dtypes, names=columns)
                     fname = f"{model_label}-line_props.fits"
-                    fpath = os.path.join(cfg.fdir_outputs, fname)
+                    fpath = os.path.join(cfg.fpath_outputs, fname)
                     tab_line_props.write(fpath, overwrite=True)
                     
                     #============== make figures =================
@@ -915,7 +915,7 @@ if __name__ == "__main__":
 
                     # save figure
                     fname = f"{model_label}-trace.png"
-                    fpath = os.path.join(cfg.fdir_outputs, fname)
+                    fpath = os.path.join(cfg.fpath_outputs, fname)
                     plt.savefig(fpath, bbox_inches='tight', dpi=200)
                     plt.close()
                     
@@ -947,7 +947,7 @@ if __name__ == "__main__":
                     corner.overplot_lines(fig, thruths_lo, color="k", ls=':')
                     
                     fname = f"{model_label}-corner.png"
-                    fpath = os.path.join(cfg.fdir_outputs, fname)
+                    fpath = os.path.join(cfg.fpath_outputs, fname)
                     plt.savefig(fpath, bbox_inches='tight', dpi=220)
                     plt.close()
 
@@ -999,12 +999,12 @@ if __name__ == "__main__":
                     
                     # save figure
                     fname = f"{model_label}-best_fit.png"
-                    fpath = os.path.join(cfg.fdir_outputs, fname)
+                    fpath = os.path.join(cfg.fpath_outputs, fname)
                     plt.savefig(fpath, bbox_inches='tight', dpi=200)
                     plt.close()
 
     # Define the path for the skipped file log
-    skipped_file_log_path = os.path.join(cfg.fdir_outputs, 'skipped_files.txt')
+    skipped_file_log_path = os.path.join(cfg.fpath_outputs, 'skipped_files.txt')
 
     # Open the file in append mode
     with open(skipped_file_log_path, 'a') as log_file:
