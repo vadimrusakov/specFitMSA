@@ -97,7 +97,7 @@ lines_dict = {'Lya_1215':     [ lw['Lya'],       ],
               'OII_7323':     [ lw['OII-7323'],  ],
               'OII_7332':     [ lw['OII-7332'],  ],
               'SIII_3722':    [ lw['SIII-3721'], ],
-              'SIII_6314':    [ lw['SIII-6314'], ],
+              'SIII_6312':    [ lw['SIII-6314'], ],
               'SIII_9069':    [ lw['SIII-9069'], ],  
               'SIII_9531':    [ lw['SIII-9531'], ],  
               'SiIII_1883':   [ lw['SiIII-1883'] ],
@@ -179,7 +179,7 @@ lines_neutral = [
 
 lines_MgS = [
     'MgV_2783', 'MgV_1325', 
-    #'SII_4069', 
+    'SII_4070', 'SII_4078',
     'SIII_3722','SIII_6312','SIII_9069','SIII_9532',
 ]
 lines_Ar = [
@@ -251,9 +251,9 @@ cols_doublets = [
 ]
 
 #line_keys = cols_tem_diag + cols_den_diag + cols_hydrogen
-#line_keys = lines_MgS + lines_Ar + lines_Ne +\
-#            lines_cnohe + cols_tem_diag + cols_den_diag + cols_hydrogen
-#line_keys = np.unique(line_keys)
+line_keys = lines_MgS + lines_Ar + lines_Ne +\
+            lines_cnohe + cols_tem_diag + cols_den_diag + cols_hydrogen
+line_keys = np.unique(line_keys)
 
 #===============================================================================
 #=== for interfacing with PyNeb ================================================
@@ -299,7 +299,7 @@ translator_my2pn = {
     'SII_4078_flux': 'S2_4076A',
     'NII_5756_flux': 'N2_5755A',
     'SIII_3722_flux': 'S3_3722A',
-    'SIII_6314_flux': 'S3_6312A',
+    'SIII_6312_flux': 'S3_6312A',
     'SIII_9069_flux': 'S3_9069A',
     'SIII_9531_flux': 'S3_9531A',
     'SII_6717_flux': 'S2_6716A',
