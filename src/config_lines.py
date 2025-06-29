@@ -251,9 +251,9 @@ cols_doublets = [
 ]
 
 #line_keys = cols_tem_diag + cols_den_diag + cols_hydrogen
-line_keys = lines_MgS + lines_Ar + lines_Ne +\
-            lines_cnohe + cols_tem_diag + cols_den_diag + cols_hydrogen
-line_keys = np.unique(line_keys)
+#line_keys = lines_MgS + lines_Ar + lines_Ne +\
+#            lines_cnohe + cols_tem_diag + cols_den_diag + cols_hydrogen
+#line_keys = np.unique(line_keys)
 
 #===============================================================================
 #=== for interfacing with PyNeb ================================================
