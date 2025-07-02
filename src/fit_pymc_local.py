@@ -824,10 +824,14 @@ if __name__ == "__main__":
                                 y_sub_samples = np.atleast_3d(y_sub_samples).T
                             y_sub_samples = y_sub_samples.sum(axis=0) # sum comps.
                             
-                            y_sub = np.array(
-                                [mode_in_hdi(y_sub_samples[:,i]) \
-                                    for i in range(n_obs_line)]
-                            ).T # [[mode,sigup,siglo], ndata]
+                            y_sub = []
+                            for i in range(n_obs_line):
+                                try:
+                                    y_sub.append(
+                                        mode_in_hdi(Y_line_samples[:, i]))
+                                except:
+                                    y_sub.append([0.0, 0.0, 0.0])
+                            y_sub = np.array(y_sub).T # [[mode,up,lo], ndata]
                             ye_sub = 0.5*(y_sub[1] + y_sub[2])
                             
                             # calculating SNR(component): 
@@ -976,8 +980,8 @@ if __name__ == "__main__":
                                     zorder=9)
                     line_names = [v for v in trace.posterior.data_vars if 'Y_' in v]
                     [ax.plot(X_rf, 
-                            trace.posterior[k].median(axis=(0,1)).data,
-                            lw=1, label=k, ls='--') \
+                             trace.posterior[k].median(axis=(0,1)).data,
+                             lw=1, label=k, ls='--') \
                         for k in line_names]
                     
                     axd.errorbar(X_rf, diff_chi, yerr=1.0, fmt='o', color='k', 
