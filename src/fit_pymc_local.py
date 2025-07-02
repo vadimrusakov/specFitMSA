@@ -828,7 +828,7 @@ if __name__ == "__main__":
                             for i in range(n_obs_line):
                                 try:
                                     y_sub.append(
-                                        mode_in_hdi(Y_line_samples[:, i]))
+                                        mode_in_hdi(y_sub_samples[:, i]))
                                 except:
                                     y_sub.append([0.0, 0.0, 0.0])
                             y_sub = np.array(y_sub).T # [[mode,up,lo], ndata]
