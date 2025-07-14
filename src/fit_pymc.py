@@ -47,7 +47,7 @@ from datetime import datetime
 from scipy.integrate import simpson
 from spectrum import *
 
-import myconfig as cfg
+import config as cfg
 import config_lines as cl
 
 #plt.rcParams['text.usetex'] = False
@@ -233,8 +233,8 @@ if __name__ == "__main__":
 
     #=== set up paths ===============================================
     # directories: working dir, outputs
-    if not os.path.exists(cfg.fdir_outputs):
-        os.makedirs(cfg.fdir_outputs)
+    if not os.path.exists(cfg.fpath_outputs):
+        os.makedirs(cfg.fpath_outputs)
     
     #=== process user-selected lines ================================
     # sort the lines by wavelength
@@ -310,7 +310,7 @@ if __name__ == "__main__":
     print("data table size:", len(df_sample))
 
     # load a SNR catalog (for SN cuts of fitted lines)
-    df_lines_sn = pd.read_csv(cfg.fpath_lines_snr)
+    #df_lines_sn = pd.read_csv(cfg.fpath_lines_snr)
 
     #=== Define the model, fit each spectrum and save the outputs 
     samplers = {'MH': pm.Metropolis,
@@ -462,30 +462,31 @@ if __name__ == "__main__":
                     n_lines = len(line_set_keys_j)
                     
                     #=== check that the lines are detected in the spectrum
+                    # require line S/N table to check for detections:
                     # if not, skip - no need to fit them
-                    cols_sn_i = [f'sn_{l}' for l in line_set_keys_j]
-                    print(f'  - spectrum: {sampleFit.fnames[0]}')
-                    
-                    cols_df = df_lines_sn.columns
-                    has_line = np.array([c in cols_df for c in cols_sn_i])
-                    cols_sn_avail = list(np.array(cols_sn_i)[has_line])
-                    
-                    skip_set = False
-                    mask_file = df_lines_sn.file.isin([sampleFit.fnames[0]])
-                    if (len(cols_sn_avail) > 0) & mask_file.any():
-                        mask_sn = [df_lines_sn.loc[mask_file,c].item() > cfg.n_thresh\
-                                    for c in cols_sn_avail]
-                        skip_set = not np.any(mask_sn)
-                        print(f'mask_sn: {mask_sn}')
-                    elif (len(cols_sn_avail) > 0) & (not mask_file.any()):
-                    #    # the file isn't in the df_lines_sn table, so don't kip it
-                        skip_set = False
-                    else:
-                        skip_set = True
-                    if skip_set:
-                        #print(f"  - fitting lines: {line_set_keys_j} ...")
-                        print(f"  - Skipping... No lines with at least {cfg.n_thresh}-sigma detection.")
-                        continue
+                    #cols_sn_i = [f'sn_{l}' for l in line_set_keys_j]
+                    #print(f'  - spectrum: {sampleFit.fnames[0]}')
+                    #
+                    #cols_df = df_lines_sn.columns
+                    #has_line = np.array([c in cols_df for c in cols_sn_i])
+                    #cols_sn_avail = list(np.array(cols_sn_i)[has_line])
+                    #
+                    #skip_set = False
+                    #mask_file = df_lines_sn.file.isin([sampleFit.fnames[0]])
+                    #if (len(cols_sn_avail) > 0) & mask_file.any():
+                    #    mask_sn = [df_lines_sn.loc[mask_file,c].item() > cfg.n_thresh\
+                    #                for c in cols_sn_avail]
+                    #    skip_set = not np.any(mask_sn)
+                    #    print(f'mask_sn: {mask_sn}')
+                    #elif (len(cols_sn_avail) > 0) & (not mask_file.any()):
+                    ##    # the file isn't in the df_lines_sn table, so don't kip it
+                    #    skip_set = False
+                    #else:
+                    #    skip_set = True
+                    #if skip_set:
+                    #    #print(f"  - fitting lines: {line_set_keys_j} ...")
+                    #    print(f"  - Skipping... No lines with at least {cfg.n_thresh}-sigma detection.")
+                    #    continue
                     
                     # get the wavelength range containing the fitted lines
                     fit_edges = exclude_fit_windows(
@@ -524,16 +525,17 @@ if __name__ == "__main__":
                     lines_str = '_'.join(line_set_keys_j)
                     model_label = f'{obj_id}-{fname_spec}-{grating}-iter{j_iter}-{lines_str}-step{cfg.step_method}'
                     model_label_any = f'{obj_id}-{fname_spec}-{grating}-iter*-{lines_str}-step{cfg.step_method}'
-                    fpaths = os.path.join(cfg.fdir_outputs, f"{model_label_any}-line_props.fits")
+                    fpaths = os.path.join(cfg.fpath_outputs, f"{model_label_any}-line_props.fits")
                     
                     if len(glob.glob(fpaths)) > 0:
+                        # can fit lines iteratively, by reusing the previous fit (disabled here)
                         print(f"\n  - Iteration {j_iter}... Set {j+1}/{n_sets}...")
                         print(f"  - fitting lines: {line_set_keys_j} ...")
                         print(f"  - Skipping... Already fitted.")
                         continue # VR
                         
                         #model_label = f'{obj_id}-{fname_spec}-{grating}-iter*-{lines_str}-step{cfg.step_method}'
-                        #fpaths = os.path.join(cfg.fdir_outputs, 
+                        #fpaths = os.path.join(cfg.fpath_outputs, 
                         #                      f"{model_label}-line_props.fits")
                         
                         labels = glob.glob(fpaths)
@@ -543,12 +545,12 @@ if __name__ == "__main__":
                         
                         # current iteration label
                         model_label = f'{obj_id}-{fname_spec}-{grating}-iter{j_iter}-{lines_str}-step{cfg.step_method}'
-                        fpaths = os.path.join(cfg.fdir_outputs, 
+                        fpaths = os.path.join(cfg.fpath_outputs, 
                                             f"{model_label}-line_props.fits")
 
                         # load results from prev iteration
                         model_label_prev = f'{obj_id}-{fname_spec}-{grating}-iter{j_iter-1}-{lines_str}-step{cfg.step_method}'
-                        fpaths_prev = os.path.join(cfg.fdir_outputs, 
+                        fpaths_prev = os.path.join(cfg.fpath_outputs, 
                                         f"{model_label_prev}-line_props.fits")
                         tab = Table.read(fpaths_prev)
                         tab_cols = tab.colnames
@@ -568,7 +570,7 @@ if __name__ == "__main__":
                         'flux_norm': sampleFit.flux_norm[0],
                     }
                     fname = f"{model_label}-data.pckl"
-                    fpath = os.path.join(cfg.fdir_outputs, fname)
+                    fpath = os.path.join(cfg.fpath_outputs, fname)
                     with open(fpath, 'wb') as f:
                         pickle.dump(d, f)
                     
@@ -647,7 +649,6 @@ if __name__ == "__main__":
                         print(f"  - starting params: {start_params}")
                         
                         # model components
-                        #Y_lines = 0
                         Y_lines_list = []
                         fwhm = pm.Uniform(f"fwhm", 
                                         lower=0.1, upper=2000.0) # [km/s]
@@ -670,9 +671,7 @@ if __name__ == "__main__":
                                     (sigma**2 + sig_disp**2))
                             )
                             Y_lines_list.append(Y_line)
-                            #Y_lines += Y_line
-                        
-                        #Y_lines = pm.Deterministic("Y_lines", Y_lines)
+                            
                         Y_lines = pm.Deterministic("Y_lines", 
                                         pt.sum(pt.stack(Y_lines_list), axis=0))
                         Y_cont = pm.Deterministic("Y_cont", (a * x_cont + b))
@@ -736,7 +735,7 @@ if __name__ == "__main__":
                     # save trace
                     if cfg.save_trace:
                         fname = f"{model_label}-trace.nc"
-                        fpath = os.path.join(cfg.fdir_outputs, fname)
+                        fpath = os.path.join(cfg.fpath_outputs, fname)
                         trace.to_netcdf(fpath, compress=True)
                     
                     #=== get median parameters
@@ -927,7 +926,7 @@ if __name__ == "__main__":
                     tab_line_props = Table(data=np.array(values)[None, :], 
                                         dtype=dtypes, names=columns)
                     fname = f"{model_label}-line_props.fits"
-                    fpath = os.path.join(cfg.fdir_outputs, fname)
+                    fpath = os.path.join(cfg.fpath_outputs, fname)
                     tab_line_props.write(fpath, overwrite=True)
                     
                     #============== make figures =================
@@ -949,7 +948,7 @@ if __name__ == "__main__":
 
                     # save figure
                     fname = f"{model_label}-trace.png"
-                    fpath = os.path.join(cfg.fdir_outputs, fname)
+                    fpath = os.path.join(cfg.fpath_outputs, fname)
                     plt.savefig(fpath, bbox_inches='tight', dpi=200)
                     plt.close()
                     
@@ -981,7 +980,7 @@ if __name__ == "__main__":
                     corner.overplot_lines(fig, thruths_lo, color="k", ls=':')
                     
                     fname = f"{model_label}-corner.png"
-                    fpath = os.path.join(cfg.fdir_outputs, fname)
+                    fpath = os.path.join(cfg.fpath_outputs, fname)
                     plt.savefig(fpath, bbox_inches='tight', dpi=220)
                     plt.close()
 
@@ -1032,12 +1031,12 @@ if __name__ == "__main__":
                     
                     # save figure
                     fname = f"{model_label}-best_fit.png"
-                    fpath = os.path.join(cfg.fdir_outputs, fname)
+                    fpath = os.path.join(cfg.fpath_outputs, fname)
                     plt.savefig(fpath, bbox_inches='tight', dpi=200)
                     plt.close()
 
     # Define the path for the skipped file log
-    skipped_file_log_path = os.path.join(cfg.fdir_outputs, 'skipped_files.txt')
+    skipped_file_log_path = os.path.join(cfg.fpath_outputs, 'skipped_files.txt')
 
     # Open the file in append mode
     with open(skipped_file_log_path, 'a') as log_file:

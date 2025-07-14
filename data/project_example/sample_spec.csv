@@ -1,3 +1,5 @@
 Index,PROG_ID,Note,z,file,ra,dec,grating,filter,root
+40,JADES-GN-1023,,4.023387,jades-gdn2-v3_prism-clear_1181_1023.spec.fits,189.082540,62.269325,PRISM,CLEAR,jades-gdn2-v3
+122,RUBIES-EGS-948917,,6.7387,rubies-egs62-nod-v3_prism-clear_4233_948917.spec.fits,214.8924789,52.8568903,PRISM,CLEAR,rubies-egs62-nod-v3
 122,RUBIES-EGS-948917,,6.7294493,rubies-egs62-v3_g395m-f290lp_4233_948917.spec.fits,214.8924789,52.8568903,G395M,F290LP,rubies-egs62-v3
 122,3567-EGS-41318,,6.7294493,valentino-egs-v3_g235m-f170lp_3567_41318.spec.fits,214.89247921596,52.85689091242,G235M,F170LP,valentino-egs-v3
