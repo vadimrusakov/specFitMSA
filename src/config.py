@@ -14,6 +14,7 @@ label_project = 'example'
 
 #=== filenames
 fname_spec = 'sample_spec.csv' # .csv file with a 'file' column
+fname_catalog_flux = 'catalog-flux.csv' # flux catalog with fitted lines
 step_method = 'NUTS' # PyMC sampling method
 
 # medium/high-res spec setup
@@ -47,3 +48,4 @@ for fdir in fdirs:
         os.makedirs(fdir)
 
 fpath_spec = os.path.join(fpath_project, fname_spec) # path to spec_list
+fpath_catalog_flux = os.path.join(fpath_project, fname_catalog_flux) # flux catalog
