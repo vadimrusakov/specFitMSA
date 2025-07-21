@@ -1,0 +1,3 @@
+Index,PROG_ID,Note,z,file,ra,dec,grating,filter,root
+40,JADES-GN-1023,,4.023387,jades-gdn2-v3_prism-clear_1181_1023.spec.fits,189.082540,62.269325,PRISM,CLEAR,jades-gdn2-v3
+7999,3215-GS-201249,,5.028161,gds-udeep-v3_prism-clear_3215_201249.spec.fits,53.13076,-27.803912,PRISM,CLEAR,gds-udeep-v3
