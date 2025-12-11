@@ -429,6 +429,13 @@ if __name__ == "__main__":
                 X_rf = X / (1 + z_guess)
                 xmin_mask, xmax_mask = X_rf.min(), X_rf.max()
                 
+                # renormalize flux in the fit window (to order unity)
+                p = np.round(abs(np.log10(Y.max())), 0)
+                flux_norm = 10**p
+                Y *= flux_norm
+                Yerr *= flux_norm
+                sampleFit.flux_norm[0] = flux_norm * sampleFit.flux_norm[0]
+                
                 # get emission lines in the spectral range
                 line_keys_spec, line_wavs_cur = get_line_wavel(
                     xmin_mask, xmax_mask, 
