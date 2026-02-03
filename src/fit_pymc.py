@@ -35,7 +35,8 @@ import arviz as az
 import corner
 import matplotlib.pyplot as plt
 import multiprocessing as mp
-mp_start_method = 'fork'
+#mp_start_method = 'fork' # provide mother process memory to child processes
+mp_start_method = 'spawn' # allocate each process a memory space
 import numpy as np
 import pandas as pd
 import pymc as pm
@@ -429,13 +430,6 @@ if __name__ == "__main__":
                 X_rf = X / (1 + z_guess)
                 xmin_mask, xmax_mask = X_rf.min(), X_rf.max()
                 
-                # renormalize flux in the fit window (to order unity)
-                p = np.round(abs(np.log10(Y.max())), 0)
-                flux_norm = 10**p
-                Y *= flux_norm
-                Yerr *= flux_norm
-                sampleFit.flux_norm[0] = flux_norm * sampleFit.flux_norm[0]
-                
                 # get emission lines in the spectral range
                 line_keys_spec, line_wavs_cur = get_line_wavel(
                     xmin_mask, xmax_mask, 
@@ -514,6 +508,13 @@ if __name__ == "__main__":
                     Yerr_fit = sampleFit.ye[0][mask & valid]
                     nobs = len(X_fit)
                     
+                    # renormalize flux in the fit window (to order unity)
+                    p = np.round(abs(np.log10(Y_fit.max())), 0)
+                    flux_norm = 10**p
+                    Y_fit *= flux_norm
+                    Yerr_fit *= flux_norm
+                    set_flux_norm = flux_norm * sampleFit.flux_norm[0].item()
+                    
                     # starting guess
                     start_params = {
                         'cont_a': 1e-2, 
@@ -574,7 +575,7 @@ if __name__ == "__main__":
                     # pickle the fitted data
                     d = {'X': X_fit, 'Y': Y_fit, 'Yerr': Yerr_fit, 
                         'z_guess': z_guess, 
-                        'flux_norm': sampleFit.flux_norm[0],
+                        'flux_norm': set_flux_norm,
                     }
                     fname = f"{model_label}-data.pckl"
                     fpath = os.path.join(cfg.fpath_outputs, fname)
@@ -797,10 +798,8 @@ if __name__ == "__main__":
                             for i in range(len(fit_edges.flatten()))]
                     vals_fit_edges = [edge for edge in fit_edges.flatten()]
 
-                    flux_norm = sampleFit.flux_norm[0].item()
-
                     columns += cols_fit_edges + ['flux_norm']
-                    values += vals_fit_edges + [flux_norm]
+                    values += vals_fit_edges + [set_flux_norm]
 
                     # best-fit params columns
                     params_names = list(params_best_full.keys())
