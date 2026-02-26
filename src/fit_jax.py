@@ -1,9 +1,9 @@
-# fit_numpyro_optimize.py
+# fit_jax.py
 # This script performs line fitting using JAX and SciPy optimization.
 # Example usage:
-# python fit_numpyro_optimize.py all
-# python fit_numpyro_optimize.py <PROG_ID>
-# python fit_numpyro_optimize.py prog_ids.txt
+# python fit_jax.py all
+# python fit_jax.py <PROG_ID>
+# python fit_jax.py prog_ids.txt
 
 import glob, os, pickle, random, shutil, sys
 import corner, logging, warnings
@@ -33,7 +33,6 @@ jax.config.update("jax_platform_name", "cpu")
 # Verify device
 #print(f"JAX default backend: {jax.default_backend()}")
 #print(f"JAX devices: {jax.devices()}")
-
 
 # Command line arguments
 # Can be: 'all', a single PROG_ID, or path to a file with PROG_IDs (one per line)
@@ -748,7 +747,7 @@ if __name__ == "__main__":
         os.makedirs(cfg.fpath_outputs)
 
     # set up logging
-    log_file = os.path.join(cfg.fpath_outputs, 'fit_numpyro_optimize.log')
+    log_file = os.path.join(cfg.fpath_outputs, 'fit_jax.log')
 
     # create logger - file only, no console output
     logger = logging.getLogger(__name__)
@@ -873,7 +872,7 @@ if __name__ == "__main__":
                     'roots': np.array([row.root]),
                     'idxs': np.array([idx_row]),
                     'obj_ids':np.array([row.PROG_ID]),
-                    'z_input': np.array([row.z_manual]),
+                    'z_input': np.array([row.z]),
                 }
                 
                 try:

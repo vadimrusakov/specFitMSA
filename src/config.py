@@ -16,6 +16,7 @@ label_project = 'example'
 #=== filenames
 fname_spec = 'sample_spec.csv' # .csv file with a 'file' column
 fname_catalog_flux = 'catalog_flux.csv' # flux catalog with fitted lines
+optimize_method = 'jax' # fitting method: 'pymc' or 'jax'
 step_method = 'NUTS' # PyMC sampling method
 
 # medium/high-res spec setup
@@ -31,11 +32,9 @@ use_global_optimization = True  # use diff. evolution before local optimization
 de_maxiter = 500  # max iter. for diff. evolution
 
 # lines to fit
-#line_keys = cl.cols_tem_diag + cl.cols_den_diag + cl.cols_hydrogen
-#line_keys = cl.cols_high_ion
-#line_keys = cl.lines_MgS + cl.lines_Ar + cl.lines_Ne +\
-#            cl.lines_cnohe + cl.cols_tem_diag + cl.cols_den_diag + cl.cols_hydrogen
-line_keys = ['Ha_6565']
+line_keys = [
+    'Hb_4861'
+]
 line_keys = np.unique(line_keys)
 
 broad_lines = [
@@ -64,7 +63,7 @@ save_trace = False # save PyMC posterior trace or not
 
 #=== paths to be used by the code ========================================
 fpath_project = f'../data/project_{label_project}' # sample directory
-fpath_outputs = os.path.join(fpath_project, f"pymc_outputs")
+fpath_outputs = os.path.join(fpath_project, f"{optimize_method}_outputs")
 fdirs = [fpath_project, fpath_outputs]
 for fdir in fdirs:
     if not os.path.exists(fdir):

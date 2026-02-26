@@ -9,7 +9,7 @@
 #   COV_FLAG   Pass 'cov' to plot covariance matrices (default: empty)
 #
 # Examples:
-#   ./run_parallel.sh          # 4 workers, no cov plots
+#   ./run_parallel.sh          # default N workers, no cov plots
 #   ./run_parallel.sh 8        # 8 workers
 #   ./run_parallel.sh 4 cov    # 4 workers with cov plots
 #
@@ -20,7 +20,7 @@
 set -e
 
 # parse arguments
-N_WORKERS=${1:-4}
+N_WORKERS=${1:-1}
 COV_FLAG=${2:-""}
 
 # get script directory and change to it
@@ -30,7 +30,7 @@ cd "$SCRIPT_DIR"
 PYTHON_SCRIPT="fit_jax.py"
 
 # get catalog path from config
-CATALOG_PATH=$(python -c "import myconfig as cfg; print(cfg.fpath_spec)")
+CATALOG_PATH=$(python -c "import config as cfg; print(cfg.fpath_spec)")
 
 if [[ ! -f "$CATALOG_PATH" ]]; then
     echo "Error: Catalog not found at $CATALOG_PATH"
@@ -38,7 +38,12 @@ if [[ ! -f "$CATALOG_PATH" ]]; then
 fi
 
 # extract unique PROG_IDs (column 2, skip header) and shuffle randomly
-mapfile -t PROG_IDS < <(tail -n +2 "$CATALOG_PATH" | cut -d',' -f2 | sort -u | shuf)
+# (uses python for shuffling for macOS/Linux compatibility)
+PROG_IDS=()
+while IFS= read -r line; do
+    PROG_IDS+=("$line")
+done < <(tail -n +2 "$CATALOG_PATH" | cut -d',' -f2 | sort -u | \
+    python3 -c "import sys,random; L=sys.stdin.read().splitlines(); random.shuffle(L); print('\n'.join(L))")
 N_OBJECTS=${#PROG_IDS[@]}
 
 echo "============================================================"
@@ -93,7 +98,7 @@ for ((i=0; i<N_WORKERS; i++)); do
     if [[ -f "$CHUNK_FILE" ]]; then
         nohup python "$PYTHON_SCRIPT" "$CHUNK_FILE" "$COV_FLAG" >> "$LOG_FILE" 2>&1 &
         PIDS+=($!)
-        echo "[Worker $i] PID ${PIDS[-1]} -> $LOG_FILE"
+        echo "[Worker $i] PID $! -> $LOG_FILE"
     fi
 done
 

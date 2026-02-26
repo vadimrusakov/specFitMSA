@@ -6,6 +6,72 @@ from tqdm import tqdm
 
 import config as cfg
 
+def exclude_fit_windows(input_bins, lines=[], hwhm=1e3):
+    """
+    Exclude specified spectral line regions from input bins.
+    Parameters:
+        input_bins (array-like): List or array of input bins, where each bin is 
+                                 defined as [start, end].
+        lines (list, optional): List of spectral line centers to exclude.
+        hwhm (float, optional): Half-width at half-maximum (HWHM) for the 
+                                exclusion windows, in the same units as `lines`.
+    Returns:
+        numpy.ndarray: Array of bins with the specified regions excluded.
+    """
+    
+    
+    # make all individual windows to exclude
+    window_bins = []
+    for l in lines:
+        x1 = l - hwhm / 3e5 * l
+        x2 = l + hwhm / 3e5 * l
+        window_bins.append([x1, x2])
+    window_bins = np.array(window_bins)
+    window_bins = window_bins[np.argsort(window_bins[:,0])]
+    
+    # merge excluded windows if needed
+    window_bins_exclude = list(window_bins[:1].copy()) # start with the 1st bin
+    for i in range(1, len(window_bins)):
+        bin1 = np.asarray(window_bins_exclude[-1])
+        bin2 = np.asarray(window_bins[i])
+        idxs_bin = np.digitize(bin1, bin2)
+        is_subset = idxs_bin == 1
+        if is_subset.all():
+            window_bins_exclude[-1] = bin2
+        elif is_subset.any():
+            window_bins_exclude[-1] = [bin1[~is_subset].item(), 
+                                       bin2[is_subset].item()]
+        else:
+            window_bins_exclude.append(bin2)
+    window_bins_exclude = np.array(window_bins_exclude)
+    
+    # exclude the windows
+    new_bins = list(input_bins[0:1].copy())
+    for bin in input_bins:
+        if not np.array_equal(bin, new_bins[-1]):
+            new_bins.append(bin)
+        for bin_excl in window_bins_exclude:
+            idxs_bin = np.digitize(bin_excl, new_bins[-1])
+            is_subset = idxs_bin == 1
+            
+            if is_subset.all():
+                # break up the current bin into two
+                bin1 = [new_bins[-1][0], bin_excl[0]]
+                bin2 = [bin_excl[1], new_bins[-1][1]]
+                new_bins[-1] = bin1
+                new_bins.append(bin2)
+            elif is_subset.any():
+                
+                if bin_excl[~is_subset].item() < new_bins[-1][0]:
+                    new_bins[-1] = [*bin_excl[is_subset], new_bins[-1][1]]
+                else:
+                    new_bins[-1] = [new_bins[-1][0], *bin_excl[is_subset]]
+    new_bins = np.array(new_bins)
+
+    if len(new_bins) == 0:
+        new_bins = input_bins
+    return new_bins
+
 class SpectrumSample(object):
     def __init__(self, fnames, roots, idxs=None, obj_ids=None, z_input=None, 
                  flux_norm=None, verbose=True, download_data=True):
@@ -83,6 +149,7 @@ class SpectrumSample(object):
             self.urls = [cfg.PATH_LOCAL.format(file=fname) \
                          for fname in fnames]
         
+        
         # load all spectra with msaexp
         samp = []
         is_loaded = np.ones_like(fnames).astype(bool)
@@ -96,6 +163,8 @@ class SpectrumSample(object):
                     is_loaded[i] = False
         else:
             for i, url in enumerate(self.urls):
+                print(url)
+                s = msaexp.spectrum.SpectrumSampler(url)
                 try:
                     s = msaexp.spectrum.SpectrumSampler(url)
                     samp.append(s)
@@ -226,4 +295,3 @@ class SpectrumSampleFit(SpectrumSample):
         below = np.tile(self.x[:, None, :],(1, nwin, 1)) < \
                 self.fit_window[:, 1][:, :, None]
         self.in_window = (above & below).sum(axis=1).astype(bool) # fit mask
-    
