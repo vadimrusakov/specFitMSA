@@ -52,3 +52,22 @@ The fitting is configured in [`src/config.py`](src/config.py). The code takes in
 * [pymc](https://www.pymc.io/)
 * [pytensor](https://pytensor.readthedocs.io/)
 * [arviz](https://python.arviz.org/)
+
+## Installation
+
+```bash
+git clone https://github.com/<your-username>/specFitMSA.git
+cd specFitMSA
+```
+
+Conda environment files are provided in [`envs/`](envs/). Install and activate the one matching your chosen implementation:
+
+```bash
+# scipy.optimize / jax implementation
+conda env create -f envs/env_jax.yml
+conda activate specfitmsa-jax
+
+# PyMC implementation
+conda env create -f envs/env_pymc.yml
+conda activate specfitmsa-pymc
+```

@@ -1,0 +1,19 @@
+name: specfitmsa-pymc
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - astropy
+  - matplotlib
+  - pandas
+  - numpy
+  - scipy
+  - arviz
+  - pymc
+  - pytensor
+  - tqdm
+  - pip
+  - pip:
+    - corner
+    - msaexp
